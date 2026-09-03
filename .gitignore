@@ -1,0 +1,15 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist
+dist-ssr
+*.local
+
+# Editor & OS files
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.log
