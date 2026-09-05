@@ -31,7 +31,7 @@ export function defaultState() {
       compactDensity: false,
       showCompleted: true,
       soundEffects: true,
-      notifications: false,
+      notifications: true,
       notificationSettings: {
         enabled: true,
         deadlines: true,
@@ -54,6 +54,7 @@ export function defaultState() {
     tutorialCompleted: false,
     calendarCursor: { year: new Date().getFullYear(), month: new Date().getMonth() },
     calendarSelected: null,
+    lastBackupReminder: Date.now(),
   };
 }
 

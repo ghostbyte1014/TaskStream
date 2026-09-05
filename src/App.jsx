@@ -14,6 +14,8 @@ import { OnboardingModal } from './components/modals/OnboardingModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { GuidedTour } from './components/modals/GuidedTour';
 import { PrivacyModal } from './components/modals/PrivacyModal';
+import { ClearDataModal } from './components/modals/ClearDataModal';
+import { BackupReminderModal } from './components/modals/BackupReminderModal';
 import { checkAndSendNotifications } from './utils/notificationScheduler';
 import { Plus } from 'lucide-react';
 import './styles/theme.css';
@@ -41,6 +43,10 @@ export function App() {
     setIsOnboardingModalOpen,
     isHelpModalOpen,
     setIsHelpModalOpen,
+    isBackupReminderOpen,
+    setIsBackupReminderOpen,
+    isClearDataModalOpen,
+    setIsClearDataModalOpen,
     isSidebarOpenMobile,
     setIsSidebarOpenMobile,
     isTourActive,
@@ -55,7 +61,9 @@ export function App() {
     toggleTask,
     toggleSubtask,
     addCategory,
-    clearAllData,
+    requestClearAllData,
+    performClearAllData,
+    exportData,
     showToast
   } = useTaskState();
 
@@ -98,6 +106,19 @@ export function App() {
     return () => clearInterval(timer);
   }, [state, showToast]);
 
+  // Backup reminder trigger
+  useEffect(() => {
+    // 30 days in ms: 2592000000
+    const THIRTY_DAYS = 2592000000;
+    const now = Date.now();
+    const lastReminder = state.lastBackupReminder || now;
+    
+    // Only remind if they have some data and 30 days have passed
+    if (now - lastReminder > THIRTY_DAYS && state.tasks.length > 0) {
+      setIsBackupReminderOpen(true);
+    }
+  }, [state.lastBackupReminder, state.tasks.length, setIsBackupReminderOpen]);
+
   const handleTriggerInstall = async () => {
     if (!deferredInstallPrompt) {
       showToast('Already installed or browser does not support in-app install');
@@ -117,7 +138,7 @@ export function App() {
       const tag = (e.target.tagName || '').toLowerCase();
       const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
       
-      const anyModalOpen = isTaskModalOpen || isDeleteModalOpen || isCategoryModalOpen || isSettingsModalOpen || isOnboardingModalOpen || isHelpModalOpen;
+      const anyModalOpen = isTaskModalOpen || isDeleteModalOpen || isCategoryModalOpen || isSettingsModalOpen || isOnboardingModalOpen || isHelpModalOpen || isClearDataModalOpen || isBackupReminderOpen;
 
       if (e.key === 'Escape') {
         if (anyModalOpen) {
@@ -127,6 +148,11 @@ export function App() {
           setIsSettingsModalOpen(false);
           setIsOnboardingModalOpen(false);
           setIsHelpModalOpen(false);
+          setIsClearDataModalOpen(false);
+          if (isBackupReminderOpen) {
+            setIsBackupReminderOpen(false);
+            updateState(s => ({ ...s, lastBackupReminder: Date.now() }));
+          }
         }
         return;
       }
@@ -162,7 +188,11 @@ export function App() {
     setIsCategoryModalOpen,
     setIsSettingsModalOpen,
     setIsOnboardingModalOpen,
-    setIsHelpModalOpen
+    setIsHelpModalOpen,
+    setIsClearDataModalOpen,
+    setIsBackupReminderOpen,
+    isBackupReminderOpen,
+    updateState
   ]);
 
   const handleOpenTaskModal = (taskId = null) => {
@@ -289,7 +319,8 @@ export function App() {
         onClose={() => setIsSettingsModalOpen(false)}
         state={state}
         updateState={updateState}
-        onClearAllData={clearAllData}
+        onClearAllData={requestClearAllData}
+        onExportData={exportData}
         showToast={showToast}
         deferredInstallPrompt={deferredInstallPrompt}
         onTriggerInstall={handleTriggerInstall}
@@ -299,6 +330,25 @@ export function App() {
       <PrivacyModal
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
+      />
+
+      <ClearDataModal
+        isOpen={isClearDataModalOpen}
+        onClose={() => setIsClearDataModalOpen(false)}
+        onConfirm={performClearAllData}
+      />
+
+      <BackupReminderModal
+        isOpen={isBackupReminderOpen}
+        onClose={() => {
+          setIsBackupReminderOpen(false);
+          updateState(s => ({ ...s, lastBackupReminder: Date.now() }));
+        }}
+        onExport={() => {
+          exportData();
+          setIsBackupReminderOpen(false);
+          updateState(s => ({ ...s, lastBackupReminder: Date.now() }));
+        }}
       />
 
       <OnboardingModal

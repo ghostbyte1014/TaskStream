@@ -174,4 +174,27 @@ export function checkAndSendNotifications(state, showToast) {
       }
     }
   });
+
+  // 7. Backup Reminder
+  if (ns.backupReminder !== false) {
+    const freq = ns.backupReminderFrequency || 'weekly';
+    let daysThreshold = 7;
+    if (freq === 'daily') daysThreshold = 1;
+    if (freq === 'monthly') daysThreshold = 30;
+    
+    const lastBackup = state.lastBackupReminder || 0;
+    const daysSinceLastBackup = (now.getTime() - lastBackup) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceLastBackup >= daysThreshold && state.tasks.length > 0) {
+      const key = `backup_reminder_${todayIso}`;
+      if (!notifiedKeys.has(key)) {
+        notifiedKeys.add(key);
+        triggerNativeNotification('💾 Backup Reminder', {
+          body: `It's been a while since your last backup. Open Settings to export your tasks!`,
+          tag: key
+        });
+        if (showToast) showToast('💾 Reminder: Time to back up your tasks!');
+      }
+    }
+  }
 }

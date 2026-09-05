@@ -262,7 +262,7 @@ export function Sidebar({
           >
             <div>© {new Date().getFullYear()} <strong>TaskStream</strong></div>
             <div>Created by <span style={{ color: 'var(--ink-soft)', fontWeight: 600 }}>ghostbyte</span></div>
-            <div style={{ fontSize: 10, marginTop: 2, opacity: 0.7 }}>v1.0.0 • Offline PWA</div>
+            <div style={{ fontSize: 10, marginTop: 2, opacity: 0.7 }}>v1.0.0 • Mobile First PWA</div>
           </div>
         </div>
       </aside>

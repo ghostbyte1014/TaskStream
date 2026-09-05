@@ -13,3 +13,5 @@ dist-ssr
 .DS_Store
 Thumbs.db
 *.log
+
+*.md

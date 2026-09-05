@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadState, saveStateToStorage, uid, defaultState, seedSampleData } from '../utils/storage';
 import { isToday, isOverdue, todayISO, isUpcoming } from '../utils/dateUtils';
 import { checkAchievements } from '../utils/achievements';
+import { triggerNativeNotification } from '../utils/notificationScheduler';
 
 export function useTaskState() {
   const [state, setStateState] = useState(() => loadState());
@@ -16,6 +17,8 @@ export function useTaskState() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isBackupReminderOpen, setIsBackupReminderOpen] = useState(false);
+  const [isClearDataModalOpen, setIsClearDataModalOpen] = useState(false);
   const [isSidebarOpenMobile, setIsSidebarOpenMobile] = useState(false);
   const [isTourActive, setIsTourActive] = useState(!state.tutorialCompleted);
 
@@ -276,14 +279,61 @@ export function useTaskState() {
     setIsSettingsModalOpen(false);
   }, [updateState]);
 
-  const clearAllData = useCallback(() => {
-    if (window.confirm('This will permanently delete all tasks and settings. Continue?')) {
-      localStorage.removeItem('taskManagerState_v1');
-      const fresh = defaultState();
-      updateState(fresh);
-      showToast('All data cleared');
-    }
+  const requestClearAllData = useCallback(() => {
+    setIsClearDataModalOpen(true);
+  }, []);
+
+  const performClearAllData = useCallback(() => {
+    localStorage.removeItem('taskManagerState_v1');
+    const fresh = defaultState();
+    updateState(fresh);
+    showToast('All data cleared');
+    setIsClearDataModalOpen(false);
   }, [updateState, showToast]);
+
+  const exportData = useCallback(async () => {
+    // 1. Request notification permission FIRST, before the download consumes the user click gesture
+    let perm = 'default';
+    if ('Notification' in window) {
+      perm = Notification.permission;
+      if (perm === 'default') {
+        try {
+          perm = await Notification.requestPermission();
+        } catch (e) {}
+      }
+    }
+
+    // 2. Perform the actual file download
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'task-manager-backup.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('✓ Backup downloaded');
+    
+    // 3. Fire the native notification
+    if (perm === 'granted') {
+      try {
+        const n = new Notification('Backup Complete', {
+          body: 'Your tasks have successfully been backed up to your device.',
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          vibrate: [200, 100, 200]
+        });
+        
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      } catch (e) {
+        console.warn('Backup notification failed', e);
+      }
+    }
+  }, [state, showToast]);
 
   return {
     state,
@@ -307,6 +357,10 @@ export function useTaskState() {
     setIsOnboardingModalOpen,
     isHelpModalOpen,
     setIsHelpModalOpen,
+    isBackupReminderOpen,
+    setIsBackupReminderOpen,
+    isClearDataModalOpen,
+    setIsClearDataModalOpen,
     isSidebarOpenMobile,
     setIsSidebarOpenMobile,
     isTourActive,
@@ -321,7 +375,9 @@ export function useTaskState() {
     toggleTask,
     toggleSubtask,
     addCategory,
-    clearAllData,
+    requestClearAllData,
+    performClearAllData,
+    exportData,
     showToast,
     celebrate,
   };

@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { defaultState, seedSampleData } from '../../utils/storage';
+import { ConfirmActionModal } from './ConfirmActionModal';
 
 export function SettingsModal({
   isOpen,
@@ -11,26 +12,15 @@ export function SettingsModal({
   showToast,
   deferredInstallPrompt,
   onTriggerInstall,
-  onOpenPrivacyModal
+  onOpenPrivacyModal,
+  onExportData
 }) {
   const fileInputRef = useRef(null);
+  const [pendingAction, setPendingAction] = useState(null);
 
   if (!isOpen) return null;
 
   const { theme, density, settings } = state;
-
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'task-manager-backup.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast('✓ Backup downloaded');
-  };
 
   const handleImportFile = (e) => {
     const file = e.target.files[0];
@@ -373,6 +363,53 @@ export function SettingsModal({
                     </label>
                   </div>
                 </div>
+                
+                <div className="settings-row">
+                  <div>
+                    <div className="t">💾 Backup Reminder</div>
+                    <div className="d">Periodic reminder to export your data</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {settings.notificationSettings?.backupReminder !== false && (
+                      <select
+                        className="select-mini"
+                        value={settings.notificationSettings?.backupReminderFrequency || 'weekly'}
+                        onChange={(e) => updateState(s => ({
+                          ...s,
+                          settings: {
+                            ...s.settings,
+                            notificationSettings: {
+                              ...(s.settings.notificationSettings || {}),
+                              backupReminderFrequency: e.target.value
+                            }
+                          }
+                        }))}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    )}
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={settings.notificationSettings?.backupReminder ?? true}
+                        onChange={(e) => updateState(s => ({
+                          ...s,
+                          settings: {
+                            ...s.settings,
+                            notificationSettings: {
+                              ...(s.settings.notificationSettings || {}),
+                              backupReminder: e.target.checked
+                            }
+                          }
+                        }))}
+                      />
+                      <span className="track" />
+                      <span className="thumb" />
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -385,7 +422,12 @@ export function SettingsModal({
                   <div className="t">Install as an app</div>
                   <div className="d">Add TaskStream to your home screen for offline, full-screen use</div>
                 </div>
-                <button className="btn-secondary" onClick={onTriggerInstall}>
+                <button className="btn-secondary" onClick={() => setPendingAction({
+                  title: 'Install App',
+                  description: 'This will install TaskStream to your device for offline, full-screen use. Would you like to proceed?',
+                  confirmText: 'Yes, Install',
+                  action: onTriggerInstall
+                })}>
                   Install
                 </button>
               </div>
@@ -394,9 +436,14 @@ export function SettingsModal({
             <div className="settings-row">
               <div>
                 <div className="t">Export tasks</div>
-                <div className="d">Download a JSON backup</div>
+                <div className="d">Download a backup file</div>
               </div>
-              <button className="btn-secondary" onClick={handleExport}>
+              <button className="btn-secondary" onClick={() => setPendingAction({
+                title: 'Export Backup',
+                description: 'This will securely download a file containing all your current tasks and settings to your device.',
+                confirmText: 'Yes, Export',
+                action: onExportData
+              })}>
                 Export
               </button>
             </div>
@@ -404,9 +451,14 @@ export function SettingsModal({
             <div className="settings-row">
               <div>
                 <div className="t">Import tasks</div>
-                <div className="d">Restore from a JSON backup</div>
+                <div className="d">Restore from a backup file</div>
               </div>
-              <button className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
+              <button className="btn-secondary" onClick={() => setPendingAction({
+                title: 'Import Backup',
+                description: 'Importing a backup will merge the file contents into your current tasks. Do you want to proceed?',
+                confirmText: 'Yes, Import',
+                action: () => fileInputRef.current?.click()
+              })}>
                 Import
               </button>
               <input
@@ -443,7 +495,7 @@ export function SettingsModal({
               <div className="settings-row">
                 <div>
                   <div className="t">Privacy Policy</div>
-                  <div className="d">Local-first data privacy details</div>
+                  <div className="d">Local data privacy details</div>
                 </div>
                 <button className="btn-secondary" onClick={onOpenPrivacyModal}>
                   View policy
@@ -453,6 +505,15 @@ export function SettingsModal({
           </div>
         </div>
       </div>
+
+      <ConfirmActionModal
+        isOpen={!!pendingAction}
+        onClose={() => setPendingAction(null)}
+        title={pendingAction?.title}
+        description={pendingAction?.description}
+        confirmText={pendingAction?.confirmText}
+        onConfirm={pendingAction?.action}
+      />
     </div>
   );
 }
