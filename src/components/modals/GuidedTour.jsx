@@ -25,7 +25,7 @@ export function GuidedTour({
       id: 'open-mobile-menu',
       title: '1. Open Mobile Menu ☰',
       instruction: 'Tap the top-left menu icon (☰) to open the navigation drawer.',
-      targetSelector: '#menu-btn',
+      targetSelector: '.menu-btn',
       actionType: 'click',
       section: 'overview',
       onBeforeAction: () => onOpenMobileMenu && onOpenMobileMenu()
