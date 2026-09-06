@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 import { defaultState, seedSampleData } from '../../utils/storage';
 import { ConfirmActionModal } from './ConfirmActionModal';
 
@@ -422,12 +422,13 @@ export function SettingsModal({
                   <div className="t">Install as an app</div>
                   <div className="d">Add TaskStream to your home screen for offline, full-screen use</div>
                 </div>
-                <button className="btn-secondary" onClick={() => setPendingAction({
+                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setPendingAction({
                   title: 'Install App',
                   description: 'This will install TaskStream to your device for offline, full-screen use. Would you like to proceed?',
                   confirmText: 'Yes, Install',
                   action: onTriggerInstall
                 })}>
+                  <Download size={16} />
                   Install
                 </button>
               </div>
