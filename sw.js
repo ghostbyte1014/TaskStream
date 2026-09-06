@@ -1,5 +1,5 @@
 // TaskStream — Service Worker (Cache-first offline PWA shell + Background Notifications)
-const CACHE_NAME = 'taskstream-cache-v3';
+const CACHE_NAME = 'taskstream-cache-v4';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -25,6 +25,21 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
+  // Network-First for HTML navigation requests to always fetch latest index.html
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request)) // Fallback to cache if offline
+    );
+    return;
+  }
+
+  // Cache-First (Stale-While-Revalidate) for other assets (JS, CSS, images)
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)
@@ -35,7 +50,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => cached);
+        .catch(() => { /* offline */ });
       return cached || network;
     })
   );

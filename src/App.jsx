@@ -76,6 +76,15 @@ export function App() {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
       });
+
+      // Auto-refresh the page when a new service worker takes control
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
     }
 
     const handleBeforeInstallPrompt = (e) => {
