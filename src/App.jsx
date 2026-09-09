@@ -16,8 +16,8 @@ import { GuidedTour } from './components/modals/GuidedTour';
 import { PrivacyModal } from './components/modals/PrivacyModal';
 import { ClearDataModal } from './components/modals/ClearDataModal';
 import { BackupReminderModal } from './components/modals/BackupReminderModal';
-import { checkAndSendNotifications } from './utils/notificationScheduler';
-import { Plus } from 'lucide-react';
+import { checkAndSendNotifications, triggerNativeNotification } from './utils/notificationScheduler';
+import { Plus, X } from 'lucide-react';
 import './styles/theme.css';
 
 export function App() {
@@ -64,28 +64,56 @@ export function App() {
     requestClearAllData,
     performClearAllData,
     exportData,
-    showToast
+    showToast,
+    celebrate,
+    clearCelebration,
+    addInboxMessage,
+    cleanupInbox,
+    markInboxRead,
+    clearInbox,
+    clearInboxMessage
   } = useTaskState();
 
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
-  // Register service worker if supported
+  // Run cleanup once on mount
   useEffect(() => {
-    if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      });
+    cleanupInbox();
+  }, [cleanupInbox]);
 
-      // Auto-refresh the page when a new service worker takes control
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
-        }
-      });
+  // Version Check & Announcements
+  useEffect(() => {
+    const CURRENT_VERSION = 'v2.4.12';
+    if (state.lastVersionSeen !== CURRENT_VERSION) {
+      setTimeout(() => {
+        celebrate(`<span class="em">✨</span><div style="font-weight:600;font-size:16px;margin-bottom:4px;">TaskStream v2.4.12</div><div style="font-size:13px;color:var(--ink-soft);line-height:1.4;">New: Daily Habit Rollover<br/>Added: Full Offline Support<br/>Improved: Smart Task Forms</div>`, 8000);
+        
+        const title = '🎉 TaskStream Updated to v2.4.12';
+        const body = 'New: Daily Habit Rollover\nAdded: Full Offline Support\nImproved: Smart Task Forms';
+        
+        triggerNativeNotification(title, {
+          body,
+          tag: 'release_v2.4.12'
+        });
+        
+        addInboxMessage({
+          id: 'msg_update_' + CURRENT_VERSION,
+          title,
+          body,
+          timestamp: Date.now(),
+          read: false,
+          type: 'update'
+        });
+      }, 500); // 0.5s delay
+      
+      // Update state so they don't see it again
+      updateState(s => ({ ...s, lastVersionSeen: CURRENT_VERSION }));
     }
+  }, [state.lastVersionSeen, showToast, celebrate, updateState, addInboxMessage]);
+
+  useEffect(() => {
+    // Only keeping the PWA install prompt listeners, as vite-plugin-pwa handles service worker registration automatically.
 
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
@@ -106,14 +134,14 @@ export function App() {
     };
   }, [showToast]);
 
-  // Background Notification Scheduler (checks every 30s)
+  // Background Notification Scheduler (checks every 60s)
   useEffect(() => {
-    checkAndSendNotifications(state, showToast);
-    const timer = setInterval(() => {
-      checkAndSendNotifications(state, showToast);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [state, showToast]);
+    checkAndSendNotifications(state, showToast, addInboxMessage);
+    const interval = setInterval(() => {
+      checkAndSendNotifications(state, showToast, addInboxMessage);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [state, showToast, addInboxMessage]);
 
   // Backup reminder trigger
   useEffect(() => {
@@ -239,6 +267,9 @@ export function App() {
           onOpenMobileMenu={() => setIsSidebarOpenMobile(true)}
           onOpenHelpModal={() => setIsHelpModalOpen(true)}
           onOpenTaskModal={handleOpenTaskModal}
+          markInboxRead={markInboxRead}
+          clearInbox={clearInbox}
+          clearInboxMessage={clearInboxMessage}
         />
 
         <div className="content">
@@ -401,8 +432,17 @@ export function App() {
 
       {/* CELEBRATION LAYER */}
       {celebration && (
-        <div id="celebrate-layer">
-          <div className="celebrate-card show" dangerouslySetInnerHTML={{ __html: celebration }} />
+        <div id="celebrate-layer" onClick={clearCelebration}>
+          <div className="celebrate-card show" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={clearCelebration}
+              style={{ position: 'absolute', top: '8px', right: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}
+              aria-label="Close notification"
+            >
+              <X style={{ width: 16, height: 16 }} />
+            </button>
+            <div dangerouslySetInnerHTML={{ __html: celebration }} />
+          </div>
         </div>
       )}
     </div>

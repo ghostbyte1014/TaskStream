@@ -55,6 +55,8 @@ export function defaultState() {
     calendarCursor: { year: new Date().getFullYear(), month: new Date().getMonth() },
     calendarSelected: null,
     lastBackupReminder: Date.now(),
+    lastVersionSeen: '',
+    inbox: [],
   };
 }
 
@@ -122,6 +124,7 @@ export function loadState() {
     merged.categories = Array.isArray(parsed.categories) && parsed.categories.length ? parsed.categories : DEFAULT_CATEGORIES.map(c => ({ ...c }));
     merged.settings = Object.assign(defaultState().settings, parsed.settings || {});
     merged.streak = Object.assign({ count: 0, lastCompletedDate: null }, parsed.streak || {});
+    merged.inbox = Array.isArray(parsed.inbox) ? parsed.inbox : [];
     return merged;
   } catch (e) {
     console.warn('LocalStorage data was invalid, resetting.', e);

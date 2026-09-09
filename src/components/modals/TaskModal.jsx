@@ -22,6 +22,7 @@ export function TaskModal({
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtaskText, setNewSubtaskText] = useState('');
   const [recurring, setRecurring] = useState('none');
+  const [taskMode, setTaskMode] = useState('one-time');
   const [reminder, setReminder] = useState('');
   const [notes, setNotes] = useState('');
   const [titleError, setTitleError] = useState(false);
@@ -34,6 +35,8 @@ export function TaskModal({
     setEstimatedDuration(template.estimatedDuration ? String(template.estimatedDuration) : '');
     setTags((template.tags || []).join(', '));
     setSubtasks((template.subtasks || []).map((st, i) => ({ id: 'st_' + Date.now() + '_' + i, text: st, completed: false })));
+    setTaskMode(template.recurring && template.recurring !== 'none' ? 'repeating' : 'one-time');
+    setRecurring(template.recurring || 'none');
   };
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function TaskModal({
           setTags((t.tags || []).join(', '));
           setSubtasks(t.subtasks || []);
           setRecurring(t.recurring || 'none');
+          setTaskMode(t.recurring && t.recurring !== 'none' ? 'repeating' : 'one-time');
           setReminder(t.reminder || '');
           setNotes(t.notes || '');
         }
@@ -68,6 +72,7 @@ export function TaskModal({
         setSubtasks([]);
         setNewSubtaskText('');
         setRecurring('none');
+        setTaskMode('one-time');
         setReminder('');
         setNotes('');
       }
@@ -130,6 +135,25 @@ export function TaskModal({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            <div className="field" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => { setTaskMode('one-time'); setRecurring('none'); }}
+                style={taskMode === 'one-time' ? { background: 'var(--accent)', color: 'white', borderColor: 'var(--accent)', flex: 1 } : { flex: 1 }}
+              >
+                1-Time Task
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => { setTaskMode('repeating'); if(recurring === 'none') setRecurring('daily'); }}
+                style={taskMode === 'repeating' ? { background: 'var(--accent)', color: 'white', borderColor: 'var(--accent)', flex: 1 } : { flex: 1 }}
+              >
+                Repeating Task
+              </button>
+            </div>
+
             {!editingTaskId && (
               <div className="field" style={{ background: 'var(--bg-sunken)', padding: 10, borderRadius: 'var(--radius-m)', marginBottom: 16 }}>
                 <label style={{ fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--ink-faint)', marginBottom: 6 }}>
@@ -229,26 +253,28 @@ export function TaskModal({
               />
             </div>
 
-            <div className="field field-row">
-              <div>
-                <label htmlFor="f-date">Due date</label>
-                <input
-                  type="date"
-                  id="f-date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
+            {taskMode === 'one-time' && (
+              <div className="field field-row">
+                <div>
+                  <label htmlFor="f-date">Due date</label>
+                  <input
+                    type="date"
+                    id="f-date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="f-time">Due time</label>
+                  <input
+                    type="time"
+                    id="f-time"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <label htmlFor="f-time">Due time</label>
-                <input
-                  type="time"
-                  id="f-time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                />
-              </div>
-            </div>
+            )}
 
             <div className="field">
               <label>Priority</label>
@@ -381,27 +407,29 @@ export function TaskModal({
             </div>
 
             <div className="field field-row">
-              <div>
-                <label htmlFor="f-recur">Repeat</label>
-                <select
-                  id="f-recur"
-                  value={recurring}
-                  onChange={(e) => setRecurring(e.target.value)}
-                >
-                  <option value="none">Does not repeat</option>
-                  <option value="daily">Every day</option>
-                  <option value="weekday">Every weekday</option>
-                  <option value="weekly">Every week</option>
-                  <option value="monthly">Every month</option>
-                </select>
-              </div>
-              <div>
+              {taskMode === 'repeating' && (
+                <div>
+                  <label htmlFor="f-recur">Repeat</label>
+                  <select
+                    id="f-recur"
+                    value={recurring}
+                    onChange={(e) => setRecurring(e.target.value)}
+                  >
+                    <option value="daily">Every day</option>
+                    <option value="weekday">Every weekday</option>
+                    <option value="weekly">Every week</option>
+                    <option value="monthly">Every month</option>
+                  </select>
+                </div>
+              )}
+              <div style={taskMode === 'one-time' ? { width: '100%' } : {}}>
                 <label htmlFor="f-reminder">Reminder</label>
                 <input
                   type="datetime-local"
                   id="f-reminder"
                   value={reminder}
                   onChange={(e) => setReminder(e.target.value)}
+                  style={taskMode === 'one-time' ? { width: '100%' } : {}}
                 />
               </div>
             </div>

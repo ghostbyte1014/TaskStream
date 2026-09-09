@@ -50,6 +50,12 @@ export function TaskCard({
           <span className="task-title">{task.title}</span>
         </div>
 
+        {task.missedDaysCount > 0 && !task.completed && (
+          <div style={{ color: 'var(--high, #e53e3e)', fontSize: '11.5px', fontWeight: '600', marginBottom: '4px', marginTop: '-2px' }}>
+            ⚠️ Missed {task.missedDaysCount} day{task.missedDaysCount > 1 ? 's' : ''}
+          </div>
+        )}
+
         <div className="task-meta">
           <span className="meta-item">
             {category ? `${category.icon} ${category.name}` : '—'}

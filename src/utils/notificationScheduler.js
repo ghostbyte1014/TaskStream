@@ -32,7 +32,7 @@ export function triggerAchievementNotification(achievementTitle, description) {
   });
 }
 
-export function checkAndSendNotifications(state, showToast) {
+export function checkAndSendNotifications(state, showToast, addInboxMessage) {
   const masterEnabled = state.settings.notifications;
   if (!masterEnabled) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -60,6 +60,8 @@ export function checkAndSendNotifications(state, showToast) {
   const targetBriefingTime = ns.briefingTime || '09:00';
   const targetStreakTime = ns.streakReminderTime || '18:00';
 
+  const uid = () => 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
   // 1. Morning Agenda Briefing (Custom Editable Time)
   if (ns.dailyBriefing && currentHHMM === targetBriefingTime) {
     const key = `morning_briefing_${todayIso}_${targetBriefingTime}`;
@@ -67,11 +69,13 @@ export function checkAndSendNotifications(state, showToast) {
       notifiedKeys.add(key);
       const todaysCount = state.tasks.filter(t => !t.completed && isToday(t)).length;
       if (todaysCount > 0) {
-        triggerNativeNotification('☀️ Morning Agenda Briefing', {
-          body: `You have ${todaysCount} task${todaysCount === 1 ? '' : 's'} scheduled for today. Have a productive day!`,
-          tag: key
-        });
+        const title = '☀️ Morning Agenda Briefing';
+        const body = `You have ${todaysCount} task${todaysCount === 1 ? '' : 's'} scheduled for today. Have a productive day!`;
+        triggerNativeNotification(title, { body, tag: key });
         if (showToast) showToast(`☀️ Morning Briefing: ${todaysCount} tasks due today`);
+        if (addInboxMessage) {
+          addInboxMessage({ id: uid(), title, body, timestamp: Date.now(), read: false, type: 'briefing' });
+        }
       }
     }
   }
@@ -105,11 +109,13 @@ export function checkAndSendNotifications(state, showToast) {
         const key = `reminder_${task.id}_${task.reminder}`;
         if (!notifiedKeys.has(key)) {
           notifiedKeys.add(key);
-          triggerNativeNotification('⏰ Task Reminder', {
-            body: `${task.title}${task.description ? ' — ' + task.description : ''}`,
-            tag: key
-          });
+          const title = '⏰ Task Reminder';
+          const body = `${task.title}${task.description ? ' — ' + task.description : ''}`;
+          triggerNativeNotification(title, { body, tag: key });
           if (showToast) showToast(`⏰ Reminder: ${task.title}`);
+          if (addInboxMessage) {
+            addInboxMessage({ id: uid(), title, body, timestamp: Date.now(), read: false, type: 'reminder' });
+          }
         }
       }
     }
@@ -125,11 +131,13 @@ export function checkAndSendNotifications(state, showToast) {
         const key = `due_lead_${leadMins}m_${task.id}_${todayIso}`;
         if (!notifiedKeys.has(key)) {
           notifiedKeys.add(key);
-          triggerNativeNotification(`⏳ Due in ${leadMins} minutes`, {
-            body: `"${task.title}" is due at ${fmtTime(task.dueTime)}`,
-            tag: key
-          });
+          const title = `⏳ Due in ${leadMins} minutes`;
+          const body = `"${task.title}" is due at ${fmtTime(task.dueTime)}`;
+          triggerNativeNotification(title, { body, tag: key });
           if (showToast) showToast(`⏳ "${task.title}" due in ${leadMins} mins`);
+          if (addInboxMessage) {
+            addInboxMessage({ id: uid(), title, body, timestamp: Date.now(), read: false, type: 'reminder' });
+          }
         }
       }
 
@@ -138,11 +146,13 @@ export function checkAndSendNotifications(state, showToast) {
         const key = `due_now_${task.id}_${todayIso}`;
         if (!notifiedKeys.has(key)) {
           notifiedKeys.add(key);
-          triggerNativeNotification('🚨 Task Due Now', {
-            body: `"${task.title}" is due right now!`,
-            tag: key
-          });
+          const title = '🚨 Task Due Now';
+          const body = `"${task.title}" is due right now!`;
+          triggerNativeNotification(title, { body, tag: key });
           if (showToast) showToast(`🚨 "${task.title}" is due now`);
+          if (addInboxMessage) {
+            addInboxMessage({ id: uid(), title, body, timestamp: Date.now(), read: false, type: 'reminder' });
+          }
         }
       }
     }
@@ -152,10 +162,12 @@ export function checkAndSendNotifications(state, showToast) {
       const key = `overdue_${task.id}_${todayIso}`;
       if (!notifiedKeys.has(key)) {
         notifiedKeys.add(key);
-        triggerNativeNotification('⚠️ Overdue Task', {
-          body: `"${task.title}" was due on ${task.dueDate}. Don't forget to complete it!`,
-          tag: key
-        });
+        const title = '⚠️ Overdue Task';
+        const body = `"${task.title}" was due on ${task.dueDate}. Don't forget to complete it!`;
+        triggerNativeNotification(title, { body, tag: key });
+        if (addInboxMessage) {
+          addInboxMessage({ id: uid(), title, body, timestamp: Date.now(), read: false, type: 'overdue' });
+        }
       }
     }
 

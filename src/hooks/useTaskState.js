@@ -66,6 +66,46 @@ export function useTaskState() {
     });
   }, [saveState]);
 
+  // Daily task rollover
+  useEffect(() => {
+    const todayStr = todayISO();
+    if (state.lastRolloverDate !== todayStr) {
+      updateState(s => {
+        let anyChanges = false;
+        const daysSinceRollover = s.lastRolloverDate ? Math.max(0, Math.floor((new Date(todayStr) - new Date(s.lastRolloverDate)) / 86400000)) : 0;
+        
+        const nextTasks = s.tasks.map(t => {
+          if (t.recurring === 'daily') {
+            anyChanges = true;
+            let missedAdd = 0;
+            if (daysSinceRollover > 0) {
+              if (!t.completed) missedAdd += 1; // Missed the last active day
+              missedAdd += Math.max(0, daysSinceRollover - 1); // Missed days in between
+            }
+            
+            return {
+              ...t,
+              completed: false,
+              completedAt: null,
+              missedDaysCount: (t.missedDaysCount || 0) + missedAdd
+            };
+          }
+          return t;
+        });
+        
+        if (!anyChanges && s.lastRolloverDate) {
+           return { ...s, lastRolloverDate: todayStr };
+        }
+        
+        return {
+            ...s,
+            tasks: nextTasks,
+            lastRolloverDate: todayStr
+        };
+      });
+    }
+  }, [state.lastRolloverDate, updateState]);
+
   // Toast trigger
   const showToast = useCallback((msg, actionLabel = null, onAction = null) => {
     const id = Date.now() + Math.random();
@@ -75,12 +115,58 @@ export function useTaskState() {
     }, actionLabel ? 4800 : 2800);
   }, []);
 
+  // Inbox management
+  const addInboxMessage = useCallback((msg) => {
+    updateState(s => {
+      let filtered = s.inbox || [];
+      if (msg.type === 'briefing') {
+        filtered = filtered.filter(m => m.type !== 'briefing');
+      } else if (msg.type === 'update') {
+        filtered = filtered.filter(m => m.type !== 'update');
+      }
+      return { ...s, inbox: [msg, ...filtered] };
+    });
+  }, [updateState]);
+
+  const markInboxRead = useCallback(() => {
+    updateState(s => ({
+      ...s,
+      inbox: (s.inbox || []).map(m => ({ ...m, read: true }))
+    }));
+  }, [updateState]);
+
+  const clearInbox = useCallback(() => {
+    updateState(s => ({ ...s, inbox: [] }));
+  }, [updateState]);
+
+  const clearInboxMessage = useCallback((id) => {
+    updateState(s => ({ ...s, inbox: (s.inbox || []).filter(m => m.id !== id) }));
+  }, [updateState]);
+
+  const cleanupInbox = useCallback(() => {
+    updateState(s => {
+      const now = Date.now();
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const filtered = (s.inbox || []).filter(m => now - m.timestamp < SEVEN_DAYS);
+      if (filtered.length !== (s.inbox || []).length) {
+        return { ...s, inbox: filtered };
+      }
+      return s;
+    });
+  }, [updateState]);
+
   // Celebration overlay
-  const celebrate = useCallback((htmlContent) => {
+  const clearCelebration = useCallback(() => {
+    setCelebration(null);
+  }, []);
+
+  const celebrate = useCallback((htmlContent, durationMs = 1800) => {
     setCelebration(htmlContent);
-    setTimeout(() => {
-      setCelebration(null);
-    }, 1800);
+    if (durationMs > 0) {
+      setTimeout(() => {
+        setCelebration(null);
+      }, durationMs);
+    }
   }, []);
 
   const checkAndCelebrate = useCallback((currentState) => {
@@ -191,7 +277,8 @@ export function useTaskState() {
           return {
             ...t,
             completed,
-            completedAt: completed ? Date.now() : null
+            completedAt: completed ? Date.now() : null,
+            ...(completed && t.recurring === 'daily' ? { missedDaysCount: 0 } : {})
           };
         }
         return t;
@@ -380,5 +467,11 @@ export function useTaskState() {
     exportData,
     showToast,
     celebrate,
+    clearCelebration,
+    addInboxMessage,
+    markInboxRead,
+    clearInbox,
+    clearInboxMessage,
+    cleanupInbox,
   };
 }
