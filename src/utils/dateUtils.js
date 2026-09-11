@@ -45,3 +45,57 @@ export function timeBucket(task) {
   if (h < 17) return 'afternoon';
   return 'evening';
 }
+
+export function getNextRecurringDate(currentDueDate, recurringType) {
+  const today = todayISO();
+  const startStr = currentDueDate || today;
+  const [y, m, d] = startStr.split('-').map(Number);
+  let dt = new Date(y, m - 1, d);
+
+  const addInterval = () => {
+    switch (recurringType) {
+      case 'daily':
+        dt.setDate(dt.getDate() + 1);
+        break;
+      case 'weekday':
+        do {
+          dt.setDate(dt.getDate() + 1);
+        } while (dt.getDay() === 0 || dt.getDay() === 6);
+        break;
+      case 'weekly':
+        dt.setDate(dt.getDate() + 7);
+        break;
+      case 'monthly': {
+        const targetDay = d;
+        dt.setMonth(dt.getMonth() + 1);
+        if (dt.getDate() !== targetDay) {
+          dt.setDate(0);
+        }
+        break;
+      }
+      default:
+        dt.setDate(dt.getDate() + 1);
+        break;
+    }
+  };
+
+  addInterval();
+
+  const toIso = (dateObj) => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  let nextIso = toIso(dt);
+  let safety = 0;
+  while (nextIso < today && safety < 500) {
+    addInterval();
+    nextIso = toIso(dt);
+    safety++;
+  }
+
+  return nextIso;
+}
+

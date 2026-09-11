@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadState, saveStateToStorage, uid, defaultState, seedSampleData } from '../utils/storage';
-import { isToday, isOverdue, todayISO, isUpcoming } from '../utils/dateUtils';
+import { isToday, isOverdue, todayISO, isUpcoming, getNextRecurringDate, fmtDate } from '../utils/dateUtils';
 import { checkAchievements } from '../utils/achievements';
 import { triggerNativeNotification } from '../utils/notificationScheduler';
 
@@ -269,36 +269,90 @@ export function useTaskState() {
 
   const toggleTask = useCallback((id) => {
     let wasCompleted = false;
+    let isRecurringCompleted = false;
+    let nextRepeatDateLabel = '';
+
     updateState(s => {
-      const nextTasks = s.tasks.map(t => {
-        if (t.id === id) {
-          const completed = !t.completed;
-          wasCompleted = completed;
-          return {
-            ...t,
-            completed,
-            completedAt: completed ? Date.now() : null,
-            ...(completed && t.recurring === 'daily' ? { missedDaysCount: 0 } : {})
-          };
+      const target = s.tasks.find(t => t.id === id);
+      if (!target) return s;
+
+      const willBeCompleted = !target.completed;
+      wasCompleted = willBeCompleted;
+
+      // Non-recurring OR un-completing a task
+      if (!willBeCompleted || !target.recurring || target.recurring === 'none') {
+        const nextTasks = s.tasks.map(t => {
+          if (t.id === id) {
+            return {
+              ...t,
+              completed: willBeCompleted,
+              completedAt: willBeCompleted ? Date.now() : null,
+              ...(willBeCompleted && t.recurring === 'daily' ? { missedDaysCount: 0 } : {})
+            };
+          }
+          return t;
+        });
+
+        const updatedStreak = { ...s.streak };
+        if (wasCompleted) {
+          updateStreak({ streak: updatedStreak });
         }
-        return t;
+
+        const nextState = { ...s, tasks: nextTasks, streak: updatedStreak };
+        if (wasCompleted) {
+          checkAndCelebrate(nextState);
+        }
+        return nextState;
+      }
+
+      // Completing a RECURRING task
+      isRecurringCompleted = true;
+      const nextDueDate = getNextRecurringDate(target.dueDate, target.recurring);
+      nextRepeatDateLabel = fmtDate(nextDueDate) || nextDueDate;
+
+      // 1. Snapshot entry of completion for history, stats, and 7-day overview
+      const completedSnapshot = {
+        ...target,
+        id: uid(),
+        completed: true,
+        completedAt: Date.now(),
+        recurring: 'none',
+        subtasks: (target.subtasks || []).map(st => ({ ...st, completed: true })),
+        parentRecurringId: target.id,
+      };
+
+      // 2. Rescheduled active recurring task for the next cycle
+      const updatedActiveTask = {
+        ...target,
+        completed: false,
+        completedAt: null,
+        dueDate: nextDueDate,
+        missedDaysCount: 0,
+        subtasks: (target.subtasks || []).map(st => ({ ...st, completed: false })),
+      };
+
+      const nextTasks = s.tasks.flatMap(t => {
+        if (t.id === id) {
+          return [completedSnapshot, updatedActiveTask];
+        }
+        return [t];
       });
 
       const updatedStreak = { ...s.streak };
-      if (wasCompleted) {
-        updateStreak({ streak: updatedStreak });
-      }
+      updateStreak({ streak: updatedStreak });
 
       const nextState = { ...s, tasks: nextTasks, streak: updatedStreak };
-      if (wasCompleted) {
-        checkAndCelebrate(nextState);
-      }
+      checkAndCelebrate(nextState);
       return nextState;
     });
 
     if (wasCompleted) {
       celebrate(`<span class="em">✅</span><div style="font-weight:600;">Nice work!</div>`);
-      showToast('✓ Task completed');
+      if (isRecurringCompleted) {
+        showToast(`✓ Task completed (repeats ${nextRepeatDateLabel})`);
+      } else {
+        showToast('✓ Task completed');
+      }
     } else {
       showToast('Task marked as not completed');
     }

@@ -39,22 +39,27 @@ export function KanbanView({ state, updateState, onToggleTask, onEditTask, onDel
     setDragOverCol(null);
     if (!draggedTaskId) return;
 
-    updateState(s => {
-      const nextTasks = s.tasks.map(t => {
-        if (t.id === draggedTaskId) {
-          if (colKey === 'done') {
-            return { ...t, completed: true, completedAt: Date.now() };
-          } else if (colKey === 'progress') {
-            const yesterday = new Date(Date.now() - 86400e3).toISOString().slice(0, 10);
-            return { ...t, completed: false, completedAt: null, dueDate: yesterday };
-          } else {
-            return { ...t, completed: false, completedAt: null };
+    if (colKey === 'done') {
+      const targetTask = tasks.find(t => t.id === draggedTaskId);
+      if (targetTask && !targetTask.completed) {
+        onToggleTask(draggedTaskId);
+      }
+    } else {
+      updateState(s => {
+        const nextTasks = s.tasks.map(t => {
+          if (t.id === draggedTaskId) {
+            if (colKey === 'progress') {
+              const yesterday = new Date(Date.now() - 86400e3).toISOString().slice(0, 10);
+              return { ...t, completed: false, completedAt: null, dueDate: yesterday };
+            } else {
+              return { ...t, completed: false, completedAt: null };
+            }
           }
-        }
-        return t;
+          return t;
+        });
+        return { ...s, tasks: nextTasks };
       });
-      return { ...s, tasks: nextTasks };
-    });
+    }
 
     setDraggedTaskId(null);
   };
